@@ -1,7 +1,8 @@
 /* SACCADES service worker
    オンラインのときは、いつも最新のファイルを取りに行き（3秒で取れなければ保存分を使う）、
    オフラインのときは、端末に保存した分で動きます。
-   ゲームを更新するときは、index.html などを差し替えるだけで構いません。 */
+   ゲームを更新するときは、index.html などを差し替えるだけで構いません。
+   サイトが公開停止（404）になっても、端末に保存した分で使い続けられます。 */
 const VERSION = 'saccades-v1';
 const FETCH_TIMEOUT_MS = 3000;
 const ASSETS = [
@@ -42,8 +43,13 @@ self.addEventListener('fetch', (event) => {
     const cache = await caches.open(VERSION);
     try {
       const res = await fetchFresh(req.url);
-      if (res && res.ok) cache.put(req, res.clone());
-      return res;
+      if (res && res.ok) {
+        cache.put(req, res.clone());
+        return res;
+      }
+      // サイトが公開停止（404）やサーバー障害のときは、端末に保存した分を使い続ける
+      const saved = await cache.match(req, { ignoreSearch: true });
+      return saved || res;
     } catch (err) {
       const hit = await cache.match(req, { ignoreSearch: true });
       if (hit) return hit;
